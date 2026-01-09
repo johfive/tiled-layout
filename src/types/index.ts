@@ -1,5 +1,11 @@
 export type PageSize = 'A4' | 'A3'
 
+export interface Toast {
+  id: string
+  message: string
+  type: 'success' | 'error' | 'info'
+}
+
 export interface CellContent {
   imageData: string
   filename: string
@@ -37,6 +43,7 @@ export interface LayoutState {
   selectedCellId: string | null
   darkMode: boolean
   zoom: number
+  toasts: Toast[]
 }
 
 export interface LayoutActions {
@@ -61,6 +68,8 @@ export interface LayoutActions {
   movePage: (fromIndex: number, toIndex: number) => void
   moveCell: (pageIndex: number, fromCellIndex: number, toCellIndex: number) => void
   loadLayoutData: (data: any) => void
+  showToast: (message: string, type?: 'success' | 'error' | 'info') => void
+  removeToast: (id: string) => void
 }
 
 declare global {

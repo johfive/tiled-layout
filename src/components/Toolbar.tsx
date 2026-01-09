@@ -34,7 +34,8 @@ export default function Toolbar() {
     zoom,
     setZoom,
     pages,
-    loadLayoutData
+    loadLayoutData,
+    showToast
   } = useLayoutStore()
 
   const handleExport = async () => {
@@ -58,9 +59,9 @@ export default function Toolbar() {
     const result = await window.electronAPI.exportPDF(exportData)
 
     if (result.success) {
-      alert(`PDF exported successfully to:\n${result.filePath}`)
+      showToast(`PDF exported to ${result.filePath}`)
     } else if (!result.canceled) {
-      alert(`Export failed: ${result.error}`)
+      showToast(`Export failed: ${result.error}`, 'error')
     }
   }
 
@@ -81,15 +82,17 @@ export default function Toolbar() {
       showFilenames,
       showGridLines,
       showPageNumbers,
-      title
+      title,
+      darkMode,
+      zoom
     }
 
     const result = await window.electronAPI.saveLayout(layoutData)
 
     if (result.success) {
-      alert(`Layout saved to:\n${result.filePath}`)
+      showToast(`Layout saved to ${result.filePath}`)
     } else if (!result.canceled) {
-      alert(`Save failed: ${result.error}`)
+      showToast(`Save failed: ${result.error}`, 'error')
     }
   }
 
@@ -98,8 +101,9 @@ export default function Toolbar() {
 
     if (result.success && result.data) {
       loadLayoutData(result.data)
+      showToast('Layout loaded')
     } else if (!result.canceled && result.error) {
-      alert(`Load failed: ${result.error}`)
+      showToast(`Load failed: ${result.error}`, 'error')
     }
   }
 
@@ -117,9 +121,9 @@ export default function Toolbar() {
     const result = await window.electronAPI.packageLayout(packageData)
 
     if (result.success) {
-      alert(`Package saved to:\n${result.filePath}\n(${result.fileCount} files)`)
+      showToast(`Package saved (${result.fileCount} files)`)
     } else if (!result.canceled) {
-      alert(`Package failed: ${result.error}`)
+      showToast(`Package failed: ${result.error}`, 'error')
     }
   }
 

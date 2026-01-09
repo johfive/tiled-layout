@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { LayoutState, LayoutActions, Page, Cell, PageSize, CellContent } from '../types'
+import { LayoutState, LayoutActions, Page, Cell, PageSize, CellContent, Toast } from '../types'
 
 const createCells = (rows: number, cols: number): Cell[] => {
   return Array.from({ length: rows * cols }, (_, i) => ({
@@ -31,6 +31,7 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
   selectedCellId: null,
   darkMode: false,
   zoom: 1,
+  toasts: [],
 
   // Actions
   setPageSize: (size: PageSize) => {
@@ -303,6 +304,15 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
   },
 
   loadLayoutData: (data: any) => {
+    // Apply dark mode if specified
+    if (data.darkMode !== undefined) {
+      if (data.darkMode) {
+        document.documentElement.classList.add('dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+      }
+    }
+
     set({
       pageSize: data.pageSize || 'A4',
       pages: data.pages || [],
@@ -314,8 +324,23 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
       showGridLines: data.showGridLines ?? true,
       showPageNumbers: data.showPageNumbers ?? false,
       title: data.title || '',
+      darkMode: data.darkMode ?? false,
+      zoom: data.zoom || 1,
       currentPageIndex: 0,
       selectedCellId: null
     })
+  },
+
+  showToast: (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    const toast: Toast = {
+      id: `toast-${Date.now()}`,
+      message,
+      type
+    }
+    set(state => ({ toasts: [...state.toasts, toast] }))
+  },
+
+  removeToast: (id: string) => {
+    set(state => ({ toasts: state.toasts.filter(t => t.id !== id) }))
   }
 }))

@@ -3,9 +3,10 @@ import { useLayoutStore } from './stores/layoutStore'
 import Toolbar from './components/Toolbar'
 import PageList from './components/PageList'
 import GridEditor from './components/GridEditor'
+import Toast from './components/Toast'
 
 function App() {
-  const { addFilesToCells, clearSelectedCell } = useLayoutStore()
+  const { addFilesToCells, clearSelectedCell, loadLayoutData, showToast, toasts, removeToast } = useLayoutStore()
 
   const handleGlobalDragOver = useCallback((e: DragEvent) => {
     e.preventDefault()
@@ -16,6 +17,29 @@ function App() {
 
     const files = e.dataTransfer?.files
     if (!files || files.length === 0) return
+
+    // Check for JSON layout file
+    for (const file of Array.from(files)) {
+      if (file.name.endsWith('.json')) {
+        const reader = new FileReader()
+        const content = await new Promise<string>((resolve) => {
+          reader.onload = () => resolve(reader.result as string)
+          reader.readAsText(file)
+        })
+
+        try {
+          const data = JSON.parse(content)
+          if (data.pages && Array.isArray(data.pages)) {
+            loadLayoutData(data)
+            showToast(`Loaded layout from ${file.name}`)
+            return
+          }
+        } catch {
+          showToast(`Failed to parse ${file.name}`, 'error')
+          return
+        }
+      }
+    }
 
     const supportedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/svg+xml']
     const imageFiles: { imageData: string; filename: string; originalPath: string }[] = []
@@ -39,7 +63,7 @@ function App() {
     if (imageFiles.length > 0) {
       addFilesToCells(imageFiles)
     }
-  }, [addFilesToCells])
+  }, [addFilesToCells, loadLayoutData, showToast])
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -65,6 +89,16 @@ function App() {
       <div className="main-content">
         <PageList />
         <GridEditor />
+      </div>
+      <div className="toast-container">
+        {toasts.map(toast => (
+          <Toast
+            key={toast.id}
+            message={toast.message}
+            type={toast.type}
+            onClose={() => removeToast(toast.id)}
+          />
+        ))}
       </div>
     </>
   )

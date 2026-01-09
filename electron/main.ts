@@ -2,7 +2,8 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
-import { PDFDocument, rgb } from 'pdf-lib'
+import PDFDocument from 'pdfkit'
+import SVGtoPDF from 'svg-to-pdfkit'
 import archiver from 'archiver'
 
 // ES module compatibility
@@ -18,7 +19,7 @@ function createWindow() {
     minWidth: 1000,
     minHeight: 700,
     webPreferences: {
-      preload: path.join(__dirname, '../electron/preload.cjs'),
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false
@@ -91,10 +92,6 @@ ipcMain.handle('export-pdf', async (_event, data: {
 
   try {
     console.log('PDF Export - Pages:', data.pages.length)
-    console.log('PDF Export - First page cells:', data.pages[0]?.cells?.length)
-    console.log('PDF Export - Has images:', data.pages[0]?.cells?.some(c => c.imageData))
-
-    const pdfDoc = await PDFDocument.create()
 
     // Page dimensions in points (1 inch = 72 points, 1 mm = 2.834645669 points)
     const mmToPoints = 2.834645669
@@ -104,141 +101,198 @@ ipcMain.handle('export-pdf', async (_event, data: {
     }
 
     const pageSize = pageSizes[data.pageSize]
-    const margin = data.margin * mmToPoints
-    const gap = data.gap * mmToPoints
+    const marginPts = data.margin * mmToPoints
+    const gapPts = data.gap * mmToPoints
 
-    const contentWidth = pageSize.width - (2 * margin)
-    const contentHeight = pageSize.height - (2 * margin)
+    const contentWidth = pageSize.width - (2 * marginPts)
+    const contentHeight = pageSize.height - (2 * marginPts)
 
-    const cellWidth = (contentWidth - (gap * (data.cols - 1))) / data.cols
-    const cellHeight = (contentHeight - (gap * (data.rows - 1))) / data.rows
+    const cellWidth = (contentWidth - (gapPts * (data.cols - 1))) / data.cols
+    const cellHeight = (contentHeight - (gapPts * (data.rows - 1))) / data.rows
 
     // Reserve space for filename if showing
     const filenameHeight = data.showFilenames ? 12 : 0
-    const imageHeight = cellHeight - filenameHeight
+    const imageAreaHeight = cellHeight - filenameHeight
 
     const totalPages = data.pages.length
 
-    for (let pageIndex = 0; pageIndex < data.pages.length; pageIndex++) {
-      const pageData = data.pages[pageIndex]
-      const page = pdfDoc.addPage([pageSize.width, pageSize.height])
+    return new Promise((resolve) => {
+      const doc = new PDFDocument({
+        size: [pageSize.width, pageSize.height],
+        margin: 0,
+        autoFirstPage: false
+      })
 
-      // Draw title at top if enabled
-      if (data.title) {
-        const font = await pdfDoc.embedFont('Helvetica' as any)
-        const fontSize = 10
-        const textWidth = font.widthOfTextAtSize(data.title, fontSize)
-        page.drawText(data.title, {
-          x: (pageSize.width - textWidth) / 2,
-          y: pageSize.height - 20,
-          size: fontSize,
-          font,
-          color: rgb(0.4, 0.4, 0.4)
-        })
-      }
+      const writeStream = fs.createWriteStream(filePath)
+      doc.pipe(writeStream)
 
-      // Draw page number at bottom if enabled
-      if (data.showPageNumbers) {
-        const font = await pdfDoc.embedFont('Courier' as any)
-        const fontSize = 10
-        const pageNumText = `${pageIndex + 1}/${totalPages}`
-        const textWidth = font.widthOfTextAtSize(pageNumText, fontSize)
-        page.drawText(pageNumText, {
-          x: (pageSize.width - textWidth) / 2,
-          y: 20,
-          size: fontSize,
-          font,
-          color: rgb(0.4, 0.4, 0.4)
-        })
-      }
+      // Set up SFMono font - try to find it, fall back to Courier
+      const sfMonoPaths = [
+        '/System/Applications/Utilities/Terminal.app/Contents/Resources/Fonts/SF-Mono-Regular.otf',
+        '/Applications/Utilities/Terminal.app/Contents/Resources/Fonts/SF-Mono-Regular.otf',
+        '/System/Library/Fonts/SFMono-Regular.otf',
+        '/System/Library/Fonts/SFMono/SFMono-Regular.otf'
+      ]
 
-      for (let i = 0; i < pageData.cells.length; i++) {
-        const cell = pageData.cells[i]
-        if (!cell.imageData) {
-          console.log(`Cell ${i} has no imageData`)
-          continue
+      let fontPath: string | null = null
+      for (const p of sfMonoPaths) {
+        if (fs.existsSync(p)) {
+          fontPath = p
+          break
         }
-        console.log(`Processing cell ${i} with image`)
+      }
 
-        const row = Math.floor(i / data.cols)
-        const col = i % data.cols
+      for (let pageIndex = 0; pageIndex < data.pages.length; pageIndex++) {
+        const pageData = data.pages[pageIndex]
+        doc.addPage({ size: [pageSize.width, pageSize.height], margin: 0 })
 
-        const x = margin + (col * (cellWidth + gap))
-        const y = pageSize.height - margin - (row * (cellHeight + gap)) - cellHeight
+        // Set font for this page
+        if (fontPath) {
+          doc.font(fontPath)
+        } else {
+          doc.font('Courier')
+        }
 
-        try {
-          // Decode base64 image
-          const imageBytes = Buffer.from(cell.imageData.split(',')[1], 'base64')
-          const mimeType = cell.imageData.split(';')[0].split(':')[1]
+        // Draw title at top if enabled
+        if (data.title) {
+          doc.fontSize(10)
+             .fillColor('#666666')
+             .text(data.title, 0, 15, {
+               width: pageSize.width,
+               align: 'center'
+             })
+        }
 
-          let image
-          if (mimeType === 'image/png') {
-            image = await pdfDoc.embedPng(imageBytes)
-          } else if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
-            image = await pdfDoc.embedJpg(imageBytes)
-          } else {
-            // For SVG and other formats, skip (would need rasterization)
-            continue
-          }
+        // Draw page number at bottom if enabled
+        if (data.showPageNumbers) {
+          doc.fontSize(10)
+             .fillColor('#666666')
+             .text(`${pageIndex + 1}/${totalPages}`, 0, pageSize.height - 25, {
+               width: pageSize.width,
+               align: 'center'
+             })
+        }
 
-          // Calculate fit dimensions
-          const imgAspect = image.width / image.height
-          const cellAspect = cellWidth / imageHeight
+        for (let i = 0; i < pageData.cells.length; i++) {
+          const cell = pageData.cells[i]
+          if (!cell.imageData) continue
 
-          let drawWidth, drawHeight
-          if (imgAspect > cellAspect) {
-            drawWidth = cellWidth
-            drawHeight = cellWidth / imgAspect
-          } else {
-            drawHeight = imageHeight
-            drawWidth = imageHeight * imgAspect
-          }
+          const row = Math.floor(i / data.cols)
+          const col = i % data.cols
 
-          const drawX = x + (cellWidth - drawWidth) / 2
-          const drawY = y + filenameHeight + (imageHeight - drawHeight) / 2
+          const cellX = marginPts + (col * (cellWidth + gapPts))
+          const cellY = marginPts + (row * (cellHeight + gapPts))
 
-          page.drawImage(image, {
-            x: drawX,
-            y: drawY,
-            width: drawWidth,
-            height: drawHeight
-          })
+          try {
+            const mimeType = cell.imageData.split(';')[0].split(':')[1]
+            const base64Data = cell.imageData.split(',')[1]
 
-          // Draw filename if enabled
-          if (data.showFilenames && cell.filename) {
-            const font = await pdfDoc.embedFont('Helvetica' as any)
-            const fontSize = 8
-            const textWidth = font.widthOfTextAtSize(cell.filename, fontSize)
-            const maxWidth = cellWidth - 4
+            if (mimeType === 'image/svg+xml') {
+              // Decode SVG and embed as vector
+              const svgString = Buffer.from(base64Data, 'base64').toString('utf-8')
 
-            let displayName = cell.filename
-            if (textWidth > maxWidth) {
-              // Truncate with ellipsis
-              while (font.widthOfTextAtSize(displayName + '...', fontSize) > maxWidth && displayName.length > 0) {
-                displayName = displayName.slice(0, -1)
+              // Parse SVG to get dimensions
+              const widthMatch = svgString.match(/width="([^"]+)"/)
+              const heightMatch = svgString.match(/height="([^"]+)"/)
+              const viewBoxMatch = svgString.match(/viewBox="([^"]+)"/)
+
+              let svgWidth = 100, svgHeight = 100
+              if (viewBoxMatch) {
+                const [, , w, h] = viewBoxMatch[1].split(/\s+/).map(Number)
+                svgWidth = w || 100
+                svgHeight = h || 100
+              } else {
+                if (widthMatch) svgWidth = parseFloat(widthMatch[1]) || 100
+                if (heightMatch) svgHeight = parseFloat(heightMatch[1]) || 100
               }
-              displayName += '...'
+
+              // Calculate fit dimensions
+              const imgAspect = svgWidth / svgHeight
+              const cellAspect = cellWidth / imageAreaHeight
+
+              let drawWidth, drawHeight
+              if (imgAspect > cellAspect) {
+                drawWidth = cellWidth
+                drawHeight = cellWidth / imgAspect
+              } else {
+                drawHeight = imageAreaHeight
+                drawWidth = imageAreaHeight * imgAspect
+              }
+
+              const drawX = cellX + (cellWidth - drawWidth) / 2
+              const drawY = cellY + (imageAreaHeight - drawHeight) / 2
+
+              // Draw SVG as vector
+              doc.save()
+              SVGtoPDF(doc, svgString, drawX, drawY, {
+                width: drawWidth,
+                height: drawHeight,
+                preserveAspectRatio: 'xMidYMid meet'
+              })
+              doc.restore()
+            } else if (mimeType === 'image/png' || mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
+              // Embed raster image
+              const imageBuffer = Buffer.from(base64Data, 'base64')
+
+              // Get image dimensions by parsing the buffer
+              const img = doc.openImage(imageBuffer)
+              const imgAspect = img.width / img.height
+              const cellAspect = cellWidth / imageAreaHeight
+
+              let drawWidth, drawHeight
+              if (imgAspect > cellAspect) {
+                drawWidth = cellWidth
+                drawHeight = cellWidth / imgAspect
+              } else {
+                drawHeight = imageAreaHeight
+                drawWidth = imageAreaHeight * imgAspect
+              }
+
+              const drawX = cellX + (cellWidth - drawWidth) / 2
+              const drawY = cellY + (imageAreaHeight - drawHeight) / 2
+
+              doc.image(imageBuffer, drawX, drawY, {
+                width: drawWidth,
+                height: drawHeight
+              })
             }
 
-            const finalTextWidth = font.widthOfTextAtSize(displayName, fontSize)
-            page.drawText(displayName, {
-              x: x + (cellWidth - finalTextWidth) / 2,
-              y: y + 2,
-              size: fontSize,
-              font,
-              color: rgb(0.3, 0.3, 0.3)
-            })
+            // Draw filename if enabled
+            if (data.showFilenames && cell.filename) {
+              // Reset to SFMono (SVGtoPDF may have changed the font)
+              if (fontPath) {
+                doc.font(fontPath)
+              } else {
+                doc.font('Courier')
+              }
+              doc.fontSize(8)
+                 .fillColor('#4d4d4d')
+
+              const textY = cellY + imageAreaHeight + 2
+              doc.text(cell.filename, cellX, textY, {
+                width: cellWidth,
+                align: 'center',
+                ellipsis: true,
+                height: filenameHeight,
+                lineBreak: false
+              })
+            }
+          } catch (imgError) {
+            console.error('Error embedding image:', imgError)
           }
-        } catch (imgError) {
-          console.error('Error embedding image:', imgError)
         }
       }
-    }
 
-    const pdfBytes = await pdfDoc.save()
-    fs.writeFileSync(filePath, pdfBytes)
+      doc.end()
 
-    return { success: true, filePath }
+      writeStream.on('finish', () => {
+        resolve({ success: true, filePath })
+      })
+
+      writeStream.on('error', (err) => {
+        resolve({ success: false, error: String(err) })
+      })
+    })
   } catch (error) {
     console.error('Error exporting PDF:', error)
     return { success: false, error: String(error) }
