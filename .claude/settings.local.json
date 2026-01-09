@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(~/.nvm/versions/node/v22.20.0/bin/npm install -D tailwindcss postcss autoprefixer daisyui@latest)",
+      "Bash(~/.nvm/versions/node/v22.20.0/bin/npm install -D tailwindcss@3)"
+    ]
+  }
+}
