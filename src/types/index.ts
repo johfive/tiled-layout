@@ -31,7 +31,12 @@ export interface LayoutState {
   gap: number
   margin: number
   showFilenames: boolean
+  showGridLines: boolean
+  showPageNumbers: boolean
+  title: string
   selectedCellId: string | null
+  darkMode: boolean
+  zoom: number
 }
 
 export interface LayoutActions {
@@ -43,11 +48,19 @@ export interface LayoutActions {
   setGap: (gap: number) => void
   setMargin: (margin: number) => void
   setShowFilenames: (show: boolean) => void
+  setShowGridLines: (show: boolean) => void
+  setShowPageNumbers: (show: boolean) => void
+  setTitle: (title: string) => void
+  setDarkMode: (dark: boolean) => void
+  setZoom: (zoom: number) => void
   setCellContent: (pageIndex: number, cellIndex: number, content: CellContent | null) => void
   selectCell: (cellId: string | null) => void
   clearSelectedCell: () => void
   addFilesToCells: (files: { imageData: string; filename: string; originalPath: string }[]) => void
   swapCells: (fromPageIndex: number, fromCellIndex: number, toPageIndex: number, toCellIndex: number) => void
+  movePage: (fromIndex: number, toIndex: number) => void
+  moveCell: (pageIndex: number, fromCellIndex: number, toCellIndex: number) => void
+  loadLayoutData: (data: any) => void
 }
 
 declare global {
@@ -55,6 +68,9 @@ declare global {
     electronAPI: {
       readFile: (filePath: string) => Promise<string | null>
       exportPDF: (data: any) => Promise<{ success: boolean; filePath?: string; canceled?: boolean; error?: string }>
+      saveLayout: (data: any) => Promise<{ success: boolean; filePath?: string; canceled?: boolean; error?: string }>
+      loadLayout: () => Promise<{ success: boolean; data?: any; canceled?: boolean; error?: string }>
+      packageLayout: (data: any) => Promise<{ success: boolean; filePath?: string; fileCount?: number; canceled?: boolean; error?: string }>
     }
   }
 }

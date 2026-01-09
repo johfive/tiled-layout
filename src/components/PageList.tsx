@@ -1,4 +1,10 @@
+import { useState, useCallback, useMemo } from 'react'
 import { useLayoutStore } from '../stores/layoutStore'
+
+const PAGE_SIZES = {
+  A4: { width: 210, height: 297 },
+  A3: { width: 297, height: 420 }
+}
 
 export default function PageList() {
   const {
@@ -7,9 +13,64 @@ export default function PageList() {
     setCurrentPage,
     addPage,
     removePage,
+    movePage,
     rows,
-    cols
+    cols,
+    pageSize,
+    gap,
+    margin
   } = useLayoutStore()
+
+  // Calculate cell aspect ratio based on actual layout
+  const { pageAspect, cellAspect } = useMemo(() => {
+    const size = PAGE_SIZES[pageSize]
+    const pageAspect = size.width / size.height
+
+    // Content area after margins
+    const contentWidth = size.width - (2 * margin)
+    const contentHeight = size.height - (2 * margin)
+
+    // Cell size after gaps
+    const cellWidth = (contentWidth - (gap * (cols - 1))) / cols
+    const cellHeight = (contentHeight - (gap * (rows - 1))) / rows
+    const cellAspect = cellWidth / cellHeight
+
+    return { pageAspect, cellAspect }
+  }, [pageSize, rows, cols, gap, margin])
+
+  const [draggedPageIndex, setDraggedPageIndex] = useState<number | null>(null)
+  const [dragOverPageIndex, setDragOverPageIndex] = useState<number | null>(null)
+
+  const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', String(index))
+    setDraggedPageIndex(index)
+  }, [])
+
+  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    if (draggedPageIndex !== null && draggedPageIndex !== index) {
+      setDragOverPageIndex(index)
+    }
+  }, [draggedPageIndex])
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverPageIndex(null)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent, toIndex: number) => {
+    e.preventDefault()
+    if (draggedPageIndex !== null && draggedPageIndex !== toIndex) {
+      movePage(draggedPageIndex, toIndex)
+    }
+    setDraggedPageIndex(null)
+    setDragOverPageIndex(null)
+  }, [draggedPageIndex, movePage])
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedPageIndex(null)
+    setDragOverPageIndex(null)
+  }, [])
 
   return (
     <div className="sidebar">
@@ -21,25 +82,33 @@ export default function PageList() {
         {pages.map((page, index) => (
           <div
             key={page.id}
-            className={`page-thumbnail ${index === currentPageIndex ? 'active' : ''}`}
+            className={`page-thumbnail ${index === currentPageIndex ? 'active' : ''} ${draggedPageIndex === index ? 'dragging' : ''} ${dragOverPageIndex === index ? 'drag-over' : ''}`}
+            draggable
             onClick={() => setCurrentPage(index)}
+            onDragStart={(e) => handleDragStart(e, index)}
+            onDragOver={(e) => handleDragOver(e, index)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, index)}
+            onDragEnd={handleDragEnd}
           >
             <div
               className="page-thumbnail-inner"
-              style={{ aspectRatio: '210 / 297' }}
+              style={{ aspectRatio: String(pageAspect) }}
             >
               <div
                 className="page-thumbnail-grid"
                 style={{
                   gridTemplateRows: `repeat(${rows}, 1fr)`,
                   gridTemplateColumns: `repeat(${cols}, 1fr)`,
-                  padding: '4px'
+                  padding: '4px',
+                  gap: '2px'
                 }}
               >
                 {page.cells.map((cell, cellIndex) => (
                   <div
                     key={cellIndex}
                     className={`page-thumbnail-cell ${cell.content ? 'has-content' : ''}`}
+                    style={{ aspectRatio: String(cellAspect) }}
                   />
                 ))}
               </div>

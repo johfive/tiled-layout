@@ -1,29 +1,18 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useLayoutStore } from './stores/layoutStore'
 import Toolbar from './components/Toolbar'
 import PageList from './components/PageList'
 import GridEditor from './components/GridEditor'
 
 function App() {
-  const [isDraggingOver, setIsDraggingOver] = useState(false)
   const { addFilesToCells, clearSelectedCell } = useLayoutStore()
 
   const handleGlobalDragOver = useCallback((e: DragEvent) => {
     e.preventDefault()
-    if (e.dataTransfer?.types.includes('Files')) {
-      setIsDraggingOver(true)
-    }
-  }, [])
-
-  const handleGlobalDragLeave = useCallback((e: DragEvent) => {
-    if (e.relatedTarget === null) {
-      setIsDraggingOver(false)
-    }
   }, [])
 
   const handleGlobalDrop = useCallback(async (e: DragEvent) => {
     e.preventDefault()
-    setIsDraggingOver(false)
 
     const files = e.dataTransfer?.files
     if (!files || files.length === 0) return
@@ -60,17 +49,15 @@ function App() {
 
   useEffect(() => {
     document.addEventListener('dragover', handleGlobalDragOver)
-    document.addEventListener('dragleave', handleGlobalDragLeave)
     document.addEventListener('drop', handleGlobalDrop)
     document.addEventListener('keydown', handleKeyDown)
 
     return () => {
       document.removeEventListener('dragover', handleGlobalDragOver)
-      document.removeEventListener('dragleave', handleGlobalDragLeave)
       document.removeEventListener('drop', handleGlobalDrop)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [handleGlobalDragOver, handleGlobalDragLeave, handleGlobalDrop, handleKeyDown])
+  }, [handleGlobalDragOver, handleGlobalDrop, handleKeyDown])
 
   return (
     <>
@@ -79,11 +66,6 @@ function App() {
         <PageList />
         <GridEditor />
       </div>
-      {isDraggingOver && (
-        <div className="drop-zone-overlay">
-          <span>Drop images to add to layout</span>
-        </div>
-      )}
     </>
   )
 }

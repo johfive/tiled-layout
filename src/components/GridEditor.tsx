@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react'
+import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { useLayoutStore } from '../stores/layoutStore'
 import GridCell from './GridCell'
 
@@ -21,16 +21,27 @@ export default function GridEditor() {
     gap,
     margin,
     showFilenames,
+    showGridLines,
+    showPageNumbers,
+    title,
     selectedCellId,
     selectCell,
-    setCellContent
+    setCellContent,
+    moveCell,
+    zoom,
+    setZoom
   } = useLayoutStore()
+
+  const canvasAreaRef = useRef<HTMLDivElement>(null)
 
   const [contextMenu, setContextMenu] = useState<{
     x: number
     y: number
     cellIndex: number
   } | null>(null)
+
+  const [draggedCellIndex, setDraggedCellIndex] = useState<number | null>(null)
+  const [dragOverCellIndex, setDragOverCellIndex] = useState<number | null>(null)
 
   const currentPage = pages[currentPageIndex]
 
@@ -106,16 +117,67 @@ export default function GridEditor() {
     setContextMenu(null)
   }, [selectCell])
 
+  // Cell drag handlers
+  const handleCellDragStart = useCallback((cellIndex: number) => {
+    setDraggedCellIndex(cellIndex)
+  }, [])
+
+  const handleCellDragOver = useCallback((cellIndex: number) => {
+    if (draggedCellIndex !== null && draggedCellIndex !== cellIndex) {
+      setDragOverCellIndex(cellIndex)
+    }
+  }, [draggedCellIndex])
+
+  const handleCellDragEnd = useCallback(() => {
+    if (draggedCellIndex !== null && dragOverCellIndex !== null) {
+      moveCell(currentPageIndex, draggedCellIndex, dragOverCellIndex)
+    }
+    setDraggedCellIndex(null)
+    setDragOverCellIndex(null)
+  }, [draggedCellIndex, dragOverCellIndex, currentPageIndex, moveCell])
+
+  // Pinch zoom support
+  useEffect(() => {
+    const element = canvasAreaRef.current
+    if (!element) return
+
+    const handleWheel = (e: WheelEvent) => {
+      // Check for pinch zoom (Ctrl+wheel on trackpad/mouse, or direct pinch)
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault()
+        const delta = e.deltaY > 0 ? -0.1 : 0.1
+        setZoom(zoom + delta)
+      }
+    }
+
+    element.addEventListener('wheel', handleWheel, { passive: false })
+    return () => element.removeEventListener('wheel', handleWheel)
+  }, [zoom, setZoom])
+
   return (
-    <div className="canvas-area" onClick={handleBackgroundClick}>
+    <div className="canvas-area" onClick={handleBackgroundClick} ref={canvasAreaRef}>
       <div
         className="page-canvas"
         style={{
           width: dimensions.width,
-          height: dimensions.height
+          height: dimensions.height,
+          transform: `scale(${zoom})`,
+          transformOrigin: 'center center'
         }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Header with title */}
+        {title && (
+          <div className="page-header">{title}</div>
+        )}
+
+        {/* Footer with page number */}
+        {showPageNumbers && (
+          <div className="page-footer">
+            {currentPageIndex + 1}/{pages.length}
+          </div>
+        )}
+
         <div className="grid-container" style={gridStyle}>
           {currentPage.cells.map((cell, index) => (
             <GridCell
@@ -124,9 +186,15 @@ export default function GridEditor() {
               cellIndex={index}
               isSelected={cell.id === selectedCellId}
               showFilename={showFilenames}
+              showGridLines={showGridLines}
+              isDragging={draggedCellIndex === index}
+              isDragTarget={dragOverCellIndex === index}
               onClick={() => handleCellClick(cell.id)}
               onContextMenu={(e) => handleCellContextMenu(e, index)}
-              onDrop={(files) => handleCellDrop(index, files)}
+              onFileDrop={(files) => handleCellDrop(index, files)}
+              onDragStart={() => handleCellDragStart(index)}
+              onDragOver={() => handleCellDragOver(index)}
+              onDragEnd={handleCellDragEnd}
             />
           ))}
         </div>
