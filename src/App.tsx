@@ -75,15 +75,13 @@ function App() {
   return (
     <>
       <Toolbar />
-      <div className="flex-1 flex overflow-hidden">
+      <div className="main-content">
         <PageList />
         <GridEditor />
       </div>
       {isDraggingOver && (
         <div className="drop-zone-overlay">
-          <span className="bg-primary text-primary-content px-8 py-4 rounded-lg text-lg font-medium">
-            Drop images to add to layout
-          </span>
+          <span>Drop images to add to layout</span>
         </div>
       )}
     </>

@@ -107,23 +107,16 @@ export default function GridEditor() {
   }, [selectCell])
 
   return (
-    <div
-      className="flex-1 flex items-center justify-center p-8 overflow-auto bg-base-200"
-      onClick={handleBackgroundClick}
-    >
+    <div className="canvas-area" onClick={handleBackgroundClick}>
       <div
-        className="shadow-lg relative"
+        className="page-canvas"
         style={{
           width: dimensions.width,
-          height: dimensions.height,
-          backgroundColor: '#ffffff'
+          height: dimensions.height
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div
-          className="absolute grid"
-          style={gridStyle}
-        >
+        <div className="grid-container" style={gridStyle}>
           {currentPage.cells.map((cell, index) => (
             <GridCell
               key={cell.id}
@@ -139,21 +132,15 @@ export default function GridEditor() {
         </div>
       </div>
 
-      {/* Context Menu */}
       {contextMenu && (
         <div
-          className="menu bg-base-100 shadow-xl rounded-box w-40 p-2 fixed z-50"
+          className="context-menu"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
         >
-          <li>
-            <button
-              className="text-error"
-              onClick={handleClearCell}
-            >
-              Clear Cell
-            </button>
-          </li>
+          <button className="danger" onClick={handleClearCell}>
+            Clear Cell
+          </button>
         </div>
       )}
     </div>

@@ -32,7 +32,6 @@ export interface LayoutState {
   margin: number
   showFilenames: boolean
   selectedCellId: string | null
-  darkMode: boolean
 }
 
 export interface LayoutActions {
@@ -44,7 +43,6 @@ export interface LayoutActions {
   setGap: (gap: number) => void
   setMargin: (margin: number) => void
   setShowFilenames: (show: boolean) => void
-  setDarkMode: (dark: boolean) => void
   setCellContent: (pageIndex: number, cellIndex: number, content: CellContent | null) => void
   selectCell: (cellId: string | null) => void
   clearSelectedCell: () => void

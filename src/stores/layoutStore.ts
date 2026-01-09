@@ -26,7 +26,6 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
   margin: 10,
   showFilenames: true,
   selectedCellId: null,
-  darkMode: false,
 
   // Actions
   setPageSize: (size: PageSize) => {
@@ -144,12 +143,6 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
   setMargin: (margin: number) => set({ margin }),
 
   setShowFilenames: (show: boolean) => set({ showFilenames: show }),
-
-  setDarkMode: (dark: boolean) => {
-    set({ darkMode: dark })
-    // Apply theme to document
-    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
-  },
 
   setCellContent: (pageIndex: number, cellIndex: number, content: CellContent | null) => {
     const { pages } = get()

@@ -59,25 +59,22 @@ export default function GridCell({
     >
       {cell.content ? (
         <>
-          <div className="flex-1 flex items-center justify-center w-full overflow-hidden p-1">
+          <div className="cell-image-container">
             <img
               src={cell.content.imageData}
               alt={cell.content.filename}
-              className="max-w-full max-h-full object-contain"
+              className="cell-image"
               draggable={false}
             />
           </div>
           {showFilename && (
-            <div
-              className="text-xs text-base-content/60 text-center px-1 pb-1 truncate w-full"
-              title={cell.content.filename}
-            >
+            <div className="cell-filename" title={cell.content.filename}>
               {cell.content.filename}
             </div>
           )}
         </>
       ) : (
-        <span className="text-xs text-base-content/30">Drop image</span>
+        <span className="cell-placeholder">Drop image</span>
       )}
     </div>
   )
