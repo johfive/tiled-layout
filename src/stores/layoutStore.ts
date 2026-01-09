@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { LayoutState, LayoutActions, Page, Cell, PageSize, CellContent, Toast } from '../types'
+import { LayoutState, LayoutActions, Page, Cell, PageSize, CellContent, Toast, PageGridSettings } from '../types'
 
 const createCells = (rows: number, cols: number): Cell[] => {
   return Array.from({ length: rows * cols }, (_, i) => ({
@@ -8,22 +8,31 @@ const createCells = (rows: number, cols: number): Cell[] => {
   }))
 }
 
-const createPage = (rows: number, cols: number): Page => ({
+const createPage = (gridSettings: PageGridSettings): Page => ({
   id: `page-${Date.now()}`,
-  cells: createCells(rows, cols)
+  cells: createCells(gridSettings.rows, gridSettings.cols),
+  gridSettings: { ...gridSettings },
+  hiddenContent: []
 })
+
+const DEFAULT_GRID_SETTINGS: PageGridSettings = {
+  rows: 2,
+  cols: 2,
+  gap: 5,
+  margin: 10
+}
 
 interface LayoutStore extends LayoutState, LayoutActions {}
 
 export const useLayoutStore = create<LayoutStore>((set, get) => ({
   // State
   pageSize: 'A4',
-  pages: [createPage(2, 2)],
+  pages: [createPage(DEFAULT_GRID_SETTINGS)],
   currentPageIndex: 0,
-  rows: 2,
-  cols: 2,
-  gap: 5,
-  margin: 10,
+  defaultRows: 2,
+  defaultCols: 2,
+  defaultGap: 5,
+  defaultMargin: 10,
   showFilenames: true,
   showGridLines: true,
   showPageNumbers: false,
@@ -32,52 +41,56 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
   darkMode: false,
   zoom: 1,
   toasts: [],
+  isDirty: false,
 
   // Actions
-  setPageSize: (size: PageSize) => {
-    const { rows, cols, pages } = get()
-    // Collect all existing content
-    const allContent: CellContent[] = []
-    for (const page of pages) {
-      for (const cell of page.cells) {
-        if (cell.content) {
-          allContent.push(cell.content)
-        }
-      }
-    }
+  markDirty: () => set({ isDirty: true }),
+  markClean: () => set({ isDirty: false }),
 
-    // Create new pages and redistribute content
-    const cellsPerPage = rows * cols
-    const numPages = Math.max(1, Math.ceil(allContent.length / cellsPerPage))
-    const newPages: Page[] = []
-
-    for (let p = 0; p < numPages; p++) {
-      const newPage = createPage(rows, cols)
-      const newCells = [...newPage.cells]
-
-      for (let c = 0; c < newCells.length; c++) {
-        const contentIdx = p * cellsPerPage + c
-        if (contentIdx < allContent.length) {
-          newCells[c] = { ...newCells[c], content: allContent[contentIdx] }
-        }
-      }
-
-      newPages.push({ ...newPage, cells: newCells })
-    }
-
+  resetToNew: () => {
     set({
-      pageSize: size,
-      pages: newPages,
+      pageSize: 'A4',
+      pages: [createPage(DEFAULT_GRID_SETTINGS)],
       currentPageIndex: 0,
-      selectedCellId: null
+      defaultRows: 2,
+      defaultCols: 2,
+      defaultGap: 5,
+      defaultMargin: 10,
+      showFilenames: true,
+      showGridLines: true,
+      showPageNumbers: false,
+      title: '',
+      selectedCellId: null,
+      zoom: 1,
+      isDirty: false
     })
   },
 
+  getCurrentPageGridSettings: () => {
+    const { pages, currentPageIndex, defaultRows, defaultCols, defaultGap, defaultMargin } = get()
+    const currentPage = pages[currentPageIndex]
+    if (currentPage?.gridSettings) {
+      return currentPage.gridSettings
+    }
+    return { rows: defaultRows, cols: defaultCols, gap: defaultGap, margin: defaultMargin }
+  },
+
+  setPageSize: (size: PageSize) => {
+    set({ pageSize: size, selectedCellId: null, isDirty: true })
+  },
+
   addPage: () => {
-    const { rows, cols, pages } = get()
+    const { pages, defaultRows, defaultCols, defaultGap, defaultMargin } = get()
+    const newPage = createPage({
+      rows: defaultRows,
+      cols: defaultCols,
+      gap: defaultGap,
+      margin: defaultMargin
+    })
     set({
-      pages: [...pages, createPage(rows, cols)],
-      currentPageIndex: pages.length
+      pages: [...pages, newPage],
+      currentPageIndex: pages.length,
+      isDirty: true
     })
   },
 
@@ -95,7 +108,8 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
     set({
       pages: newPages,
       currentPageIndex: newCurrentIndex,
-      selectedCellId: null
+      selectedCellId: null,
+      isDirty: true
     })
   },
 
@@ -103,50 +117,106 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
     set({ currentPageIndex: index, selectedCellId: null })
   },
 
-  setGrid: (rows: number, cols: number) => {
+  setPageGrid: (pageIndex: number, rows: number, cols: number) => {
     const { pages } = get()
+    const page = pages[pageIndex]
+    if (!page) return
 
-    // Collect all existing content from all pages
-    const allContent: CellContent[] = []
-    for (const page of pages) {
-      for (const cell of page.cells) {
-        if (cell.content) {
-          allContent.push(cell.content)
-        }
+    const newCellCount = rows * cols
+
+    // Collect all visible content
+    const visibleContent: CellContent[] = []
+    for (const cell of page.cells) {
+      if (cell.content) {
+        visibleContent.push(cell.content)
       }
     }
 
-    // Calculate how many pages we need
-    const cellsPerPage = rows * cols
-    const numPages = Math.max(1, Math.ceil(allContent.length / cellsPerPage))
+    // Combine with any existing hidden content
+    const allContent = [...visibleContent, ...page.hiddenContent]
 
-    // Create new pages and redistribute content
-    const newPages: Page[] = []
-    for (let p = 0; p < numPages; p++) {
-      const newPage = createPage(rows, cols)
-      const newCells = [...newPage.cells]
+    // Create new cells
+    const newCells = createCells(rows, cols)
 
-      for (let c = 0; c < newCells.length; c++) {
-        const contentIdx = p * cellsPerPage + c
-        if (contentIdx < allContent.length) {
-          newCells[c] = { ...newCells[c], content: allContent[contentIdx] }
-        }
-      }
+    // Distribute content to visible cells, overflow goes to hidden
+    const contentForCells = allContent.slice(0, newCellCount)
+    const hiddenContent = allContent.slice(newCellCount)
 
-      newPages.push({ ...newPage, cells: newCells })
+    for (let i = 0; i < contentForCells.length; i++) {
+      newCells[i] = { ...newCells[i], content: contentForCells[i] }
     }
 
-    set({
-      rows,
-      cols,
-      pages: newPages,
-      selectedCellId: null
-    })
+    const newPages = [...pages]
+    newPages[pageIndex] = {
+      ...page,
+      cells: newCells,
+      gridSettings: { ...page.gridSettings, rows, cols },
+      hiddenContent
+    }
+
+    set({ pages: newPages, selectedCellId: null, isDirty: true })
   },
 
-  setGap: (gap: number) => set({ gap }),
+  setPageGap: (pageIndex: number, gap: number) => {
+    const { pages } = get()
+    const page = pages[pageIndex]
+    if (!page) return
 
-  setMargin: (margin: number) => set({ margin }),
+    const newPages = [...pages]
+    newPages[pageIndex] = {
+      ...page,
+      gridSettings: { ...page.gridSettings, gap }
+    }
+
+    set({ pages: newPages, isDirty: true })
+  },
+
+  setPageMargin: (pageIndex: number, margin: number) => {
+    const { pages } = get()
+    const page = pages[pageIndex]
+    if (!page) return
+
+    const newPages = [...pages]
+    newPages[pageIndex] = {
+      ...page,
+      gridSettings: { ...page.gridSettings, margin }
+    }
+
+    set({ pages: newPages, isDirty: true })
+  },
+
+  restoreHiddenContent: (pageIndex: number) => {
+    const { pages } = get()
+    const page = pages[pageIndex]
+    if (!page || page.hiddenContent.length === 0) return
+
+    // Find empty cells and fill them with hidden content
+    const newCells = [...page.cells]
+    const remainingHidden = [...page.hiddenContent]
+
+    for (let i = 0; i < newCells.length && remainingHidden.length > 0; i++) {
+      if (!newCells[i].content) {
+        newCells[i] = { ...newCells[i], content: remainingHidden.shift()! }
+      }
+    }
+
+    const newPages = [...pages]
+    newPages[pageIndex] = {
+      ...page,
+      cells: newCells,
+      hiddenContent: remainingHidden
+    }
+
+    set({ pages: newPages, isDirty: true })
+  },
+
+  setDefaultGrid: (rows: number, cols: number) => {
+    set({ defaultRows: rows, defaultCols: cols })
+  },
+
+  setDefaultGap: (gap: number) => set({ defaultGap: gap }),
+
+  setDefaultMargin: (margin: number) => set({ defaultMargin: margin }),
 
   setShowFilenames: (show: boolean) => set({ showFilenames: show }),
 
@@ -154,7 +224,7 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
 
   setShowPageNumbers: (show: boolean) => set({ showPageNumbers: show }),
 
-  setTitle: (title: string) => set({ title }),
+  setTitle: (title: string) => set({ title, isDirty: true }),
 
   setDarkMode: (dark: boolean) => {
     set({ darkMode: dark })
@@ -176,7 +246,7 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
     const newCells = [...newPages[pageIndex].cells]
     newCells[cellIndex] = { ...newCells[cellIndex], content }
     newPages[pageIndex] = { ...newPages[pageIndex], cells: newCells }
-    set({ pages: newPages })
+    set({ pages: newPages, isDirty: true })
   },
 
   selectCell: (cellId: string | null) => set({ selectedCellId: cellId }),
@@ -193,13 +263,12 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
     const newCells = [...newPages[currentPageIndex].cells]
     newCells[cellIndex] = { ...newCells[cellIndex], content: null }
     newPages[currentPageIndex] = { ...newPages[currentPageIndex], cells: newCells }
-    set({ pages: newPages })
+    set({ pages: newPages, isDirty: true })
   },
 
   addFilesToCells: (files) => {
-    const { pages, rows, cols } = get()
+    const { pages, defaultRows, defaultCols, defaultGap, defaultMargin } = get()
     let newPages = [...pages]
-    let currentPageIdx = pages.length - 1
     let fileIdx = 0
 
     // Find first empty cell starting from first page
@@ -224,7 +293,13 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
 
     // Create new pages for remaining files
     while (fileIdx < files.length) {
-      const newPage = createPage(rows, cols)
+      const gridSettings = {
+        rows: defaultRows,
+        cols: defaultCols,
+        gap: defaultGap,
+        margin: defaultMargin
+      }
+      const newPage = createPage(gridSettings)
       const newCells = [...newPage.cells]
 
       for (let c = 0; c < newCells.length && fileIdx < files.length; c++) {
@@ -240,10 +315,9 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
       }
 
       newPages.push({ ...newPage, cells: newCells })
-      currentPageIdx = newPages.length - 1
     }
 
-    set({ pages: newPages, currentPageIndex: currentPageIdx })
+    set({ pages: newPages, currentPageIndex: newPages.length - 1, isDirty: true })
   },
 
   swapCells: (fromPageIndex, fromCellIndex, toPageIndex, toCellIndex) => {
@@ -264,7 +338,7 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
       newPages[toPageIndex] = { ...newPages[toPageIndex], cells: newToCells }
     }
 
-    set({ pages: newPages })
+    set({ pages: newPages, isDirty: true })
   },
 
   movePage: (fromIndex: number, toIndex: number) => {
@@ -284,7 +358,7 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
       newCurrentIndex = currentPageIndex + 1
     }
 
-    set({ pages: newPages, currentPageIndex: newCurrentIndex })
+    set({ pages: newPages, currentPageIndex: newCurrentIndex, isDirty: true })
   },
 
   moveCell: (pageIndex: number, fromCellIndex: number, toCellIndex: number) => {
@@ -300,7 +374,7 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
     newCells[toCellIndex] = { ...newCells[toCellIndex], content: fromContent }
 
     newPages[pageIndex] = { ...newPages[pageIndex], cells: newCells }
-    set({ pages: newPages })
+    set({ pages: newPages, isDirty: true })
   },
 
   loadLayoutData: (data: any) => {
@@ -313,13 +387,35 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
       }
     }
 
+    // Migrate old format (global grid settings) to new format (per-page)
+    const migratedPages = (data.pages || []).map((page: any) => {
+      // If page already has gridSettings, use them
+      if (page.gridSettings) {
+        return {
+          ...page,
+          hiddenContent: page.hiddenContent || []
+        }
+      }
+      // Otherwise, use global settings from data or defaults
+      return {
+        ...page,
+        gridSettings: {
+          rows: data.rows || 2,
+          cols: data.cols || 2,
+          gap: data.gap || 5,
+          margin: data.margin || 10
+        },
+        hiddenContent: []
+      }
+    })
+
     set({
       pageSize: data.pageSize || 'A4',
-      pages: data.pages || [],
-      rows: data.rows || 2,
-      cols: data.cols || 2,
-      gap: data.gap || 5,
-      margin: data.margin || 10,
+      pages: migratedPages,
+      defaultRows: data.defaultRows || data.rows || 2,
+      defaultCols: data.defaultCols || data.cols || 2,
+      defaultGap: data.defaultGap || data.gap || 5,
+      defaultMargin: data.defaultMargin || data.margin || 10,
       showFilenames: data.showFilenames ?? true,
       showGridLines: data.showGridLines ?? true,
       showPageNumbers: data.showPageNumbers ?? false,
@@ -327,7 +423,8 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
       darkMode: data.darkMode ?? false,
       zoom: data.zoom || 1,
       currentPageIndex: 0,
-      selectedCellId: null
+      selectedCellId: null,
+      isDirty: false  // Just loaded, so not dirty
     })
   },
 

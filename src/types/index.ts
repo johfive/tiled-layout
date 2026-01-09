@@ -17,9 +17,18 @@ export interface Cell {
   content: CellContent | null
 }
 
+export interface PageGridSettings {
+  rows: number
+  cols: number
+  gap: number
+  margin: number
+}
+
 export interface Page {
   id: string
   cells: Cell[]
+  gridSettings: PageGridSettings
+  hiddenContent: CellContent[]  // Content that doesn't fit current grid
 }
 
 export interface GridPreset {
@@ -32,10 +41,11 @@ export interface LayoutState {
   pageSize: PageSize
   pages: Page[]
   currentPageIndex: number
-  rows: number
-  cols: number
-  gap: number
-  margin: number
+  // Default grid settings for new pages
+  defaultRows: number
+  defaultCols: number
+  defaultGap: number
+  defaultMargin: number
   showFilenames: boolean
   showGridLines: boolean
   showPageNumbers: boolean
@@ -44,6 +54,7 @@ export interface LayoutState {
   darkMode: boolean
   zoom: number
   toasts: Toast[]
+  isDirty: boolean  // Track if document has unsaved changes
 }
 
 export interface LayoutActions {
@@ -51,9 +62,15 @@ export interface LayoutActions {
   addPage: () => void
   removePage: (index: number) => void
   setCurrentPage: (index: number) => void
-  setGrid: (rows: number, cols: number) => void
-  setGap: (gap: number) => void
-  setMargin: (margin: number) => void
+  // Per-page grid settings
+  setPageGrid: (pageIndex: number, rows: number, cols: number) => void
+  setPageGap: (pageIndex: number, gap: number) => void
+  setPageMargin: (pageIndex: number, margin: number) => void
+  restoreHiddenContent: (pageIndex: number) => void
+  // Default settings for new pages
+  setDefaultGrid: (rows: number, cols: number) => void
+  setDefaultGap: (gap: number) => void
+  setDefaultMargin: (margin: number) => void
   setShowFilenames: (show: boolean) => void
   setShowGridLines: (show: boolean) => void
   setShowPageNumbers: (show: boolean) => void
@@ -70,6 +87,10 @@ export interface LayoutActions {
   loadLayoutData: (data: any) => void
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void
   removeToast: (id: string) => void
+  getCurrentPageGridSettings: () => PageGridSettings
+  resetToNew: () => void
+  markDirty: () => void
+  markClean: () => void
 }
 
 declare global {

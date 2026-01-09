@@ -66,12 +66,14 @@ ipcMain.handle('export-pdf', async (_event, data: {
       imageData: string | null
       filename: string | null
     }>
+    gridSettings: {
+      rows: number
+      cols: number
+      gap: number
+      margin: number
+    }
   }>
   pageSize: 'A4' | 'A3'
-  rows: number
-  cols: number
-  gap: number
-  margin: number
   showFilenames: boolean
   showPageNumbers: boolean
   title: string
@@ -101,19 +103,6 @@ ipcMain.handle('export-pdf', async (_event, data: {
     }
 
     const pageSize = pageSizes[data.pageSize]
-    const marginPts = data.margin * mmToPoints
-    const gapPts = data.gap * mmToPoints
-
-    const contentWidth = pageSize.width - (2 * marginPts)
-    const contentHeight = pageSize.height - (2 * marginPts)
-
-    const cellWidth = (contentWidth - (gapPts * (data.cols - 1))) / data.cols
-    const cellHeight = (contentHeight - (gapPts * (data.rows - 1))) / data.rows
-
-    // Reserve space for filename if showing
-    const filenameHeight = data.showFilenames ? 12 : 0
-    const imageAreaHeight = cellHeight - filenameHeight
-
     const totalPages = data.pages.length
 
     return new Promise((resolve) => {
@@ -146,6 +135,21 @@ ipcMain.handle('export-pdf', async (_event, data: {
         const pageData = data.pages[pageIndex]
         doc.addPage({ size: [pageSize.width, pageSize.height], margin: 0 })
 
+        // Get this page's grid settings
+        const { rows, cols, gap, margin } = pageData.gridSettings
+        const marginPts = margin * mmToPoints
+        const gapPts = gap * mmToPoints
+
+        const contentWidth = pageSize.width - (2 * marginPts)
+        const contentHeight = pageSize.height - (2 * marginPts)
+
+        const cellWidth = (contentWidth - (gapPts * (cols - 1))) / cols
+        const cellHeight = (contentHeight - (gapPts * (rows - 1))) / rows
+
+        // Reserve space for filename if showing
+        const filenameHeight = data.showFilenames ? 12 : 0
+        const imageAreaHeight = cellHeight - filenameHeight
+
         // Set font for this page
         if (fontPath) {
           doc.font(fontPath)
@@ -177,8 +181,8 @@ ipcMain.handle('export-pdf', async (_event, data: {
           const cell = pageData.cells[i]
           if (!cell.imageData) continue
 
-          const row = Math.floor(i / data.cols)
-          const col = i % data.cols
+          const row = Math.floor(i / cols)
+          const col = i % cols
 
           const cellX = marginPts + (col * (cellWidth + gapPts))
           const cellY = marginPts + (row * (cellHeight + gapPts))

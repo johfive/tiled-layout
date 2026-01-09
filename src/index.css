@@ -617,3 +617,54 @@ body {
     transform: translateY(0);
   }
 }
+
+/* Hidden Images Warning */
+.hidden-warning {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: #f59e0b;
+  color: white;
+  padding: 6px 12px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  z-index: 10;
+}
+
+.hidden-warning button {
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 3px;
+  color: white;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.hidden-warning button:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Thumbnail Warning Indicator */
+.thumbnail-warning-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 8px;
+  height: 8px;
+  background: #f59e0b;
+  border-radius: 50%;
+  z-index: 5;
+}
+
+.page-thumbnail.has-hidden {
+  border-color: #f59e0b;
+}
+
+.page-thumbnail.has-hidden.active {
+  border-color: #f59e0b;
+}

@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(~/.nvm/versions/node/v22.20.0/bin/npm install -D tailwindcss postcss autoprefixer daisyui@latest)",
-      "Bash(~/.nvm/versions/node/v22.20.0/bin/npm install -D tailwindcss@3)"
+      "Bash(~/.nvm/versions/node/v22.20.0/bin/npm install -D tailwindcss@3)",
+      "Bash(/usr/local/bin/node /Users/jonmiller/Sites/tiled-layout/node_modules/.bin/tsc:*)",
+      "Bash(/usr/local/bin/npx vite build)",
+      "Bash(pkill:*)",
+      "Bash(git add:*)"
     ]
   }
 }

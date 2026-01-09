@@ -14,13 +14,11 @@ export default function Toolbar() {
   const {
     pageSize,
     setPageSize,
-    rows,
-    cols,
-    setGrid,
-    gap,
-    setGap,
-    margin,
-    setMargin,
+    pages,
+    currentPageIndex,
+    setPageGrid,
+    setPageGap,
+    setPageMargin,
     showFilenames,
     setShowFilenames,
     showGridLines,
@@ -33,10 +31,25 @@ export default function Toolbar() {
     setDarkMode,
     zoom,
     setZoom,
-    pages,
     loadLayoutData,
-    showToast
+    showToast,
+    isDirty,
+    markClean,
+    resetToNew
   } = useLayoutStore()
+
+  // Get current page's grid settings
+  const currentPage = pages[currentPageIndex]
+  const { rows, cols, gap, margin } = currentPage?.gridSettings || { rows: 2, cols: 2, gap: 5, margin: 10 }
+
+  const handleNew = () => {
+    if (isDirty) {
+      const confirmed = window.confirm('You have unsaved changes. Create a new document and discard changes?')
+      if (!confirmed) return
+    }
+    resetToNew()
+    showToast('New document created')
+  }
 
   const handleExport = async () => {
     const exportData = {
@@ -44,13 +57,10 @@ export default function Toolbar() {
         cells: page.cells.map(cell => ({
           imageData: cell.content?.imageData || null,
           filename: cell.content?.filename || null
-        }))
+        })),
+        gridSettings: page.gridSettings
       })),
       pageSize,
-      rows,
-      cols,
-      gap,
-      margin,
       showFilenames,
       showPageNumbers,
       title
@@ -72,13 +82,11 @@ export default function Toolbar() {
         cells: page.cells.map(cell => ({
           id: cell.id,
           content: cell.content
-        }))
+        })),
+        gridSettings: page.gridSettings,
+        hiddenContent: page.hiddenContent
       })),
       pageSize,
-      rows,
-      cols,
-      gap,
-      margin,
       showFilenames,
       showGridLines,
       showPageNumbers,
@@ -90,6 +98,7 @@ export default function Toolbar() {
     const result = await window.electronAPI.saveLayout(layoutData)
 
     if (result.success) {
+      markClean()
       showToast(`Layout saved to ${result.filePath}`)
     } else if (!result.canceled) {
       showToast(`Save failed: ${result.error}`, 'error')
@@ -130,7 +139,7 @@ export default function Toolbar() {
   const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const preset = GRID_PRESETS.find(p => p.name === e.target.value)
     if (preset) {
-      setGrid(preset.rows, preset.cols)
+      setPageGrid(currentPageIndex, preset.rows, preset.cols)
     }
   }
 
@@ -172,7 +181,7 @@ export default function Toolbar() {
             min={1}
             max={10}
             value={rows}
-            onChange={(e) => setGrid(parseInt(e.target.value) || 1, cols)}
+            onChange={(e) => setPageGrid(currentPageIndex, parseInt(e.target.value) || 1, cols)}
           />
         </div>
 
@@ -183,7 +192,7 @@ export default function Toolbar() {
             min={1}
             max={10}
             value={cols}
-            onChange={(e) => setGrid(rows, parseInt(e.target.value) || 1)}
+            onChange={(e) => setPageGrid(currentPageIndex, rows, parseInt(e.target.value) || 1)}
           />
         </div>
 
@@ -194,7 +203,7 @@ export default function Toolbar() {
             min={0}
             max={20}
             value={gap}
-            onChange={(e) => setGap(parseInt(e.target.value) || 0)}
+            onChange={(e) => setPageGap(currentPageIndex, parseInt(e.target.value) || 0)}
           />
         </div>
 
@@ -205,7 +214,7 @@ export default function Toolbar() {
             min={5}
             max={30}
             value={margin}
-            onChange={(e) => setMargin(parseInt(e.target.value) || 5)}
+            onChange={(e) => setPageMargin(currentPageIndex, parseInt(e.target.value) || 5)}
           />
         </div>
 
@@ -273,6 +282,9 @@ export default function Toolbar() {
 
         <div className="toolbar-divider" />
 
+        <button onClick={handleNew} title="New document">
+          New
+        </button>
         <button onClick={handleSaveLayout} title="Save layout (JSON)">
           Save
         </button>

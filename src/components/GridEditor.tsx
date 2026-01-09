@@ -16,10 +16,6 @@ export default function GridEditor() {
     pages,
     currentPageIndex,
     pageSize,
-    rows,
-    cols,
-    gap,
-    margin,
     showFilenames,
     showGridLines,
     showPageNumbers,
@@ -29,7 +25,9 @@ export default function GridEditor() {
     setCellContent,
     moveCell,
     zoom,
-    setZoom
+    setZoom,
+    setPageGrid,
+    restoreHiddenContent
   } = useLayoutStore()
 
   const canvasAreaRef = useRef<HTMLDivElement>(null)
@@ -44,6 +42,10 @@ export default function GridEditor() {
   const [dragOverCellIndex, setDragOverCellIndex] = useState<number | null>(null)
 
   const currentPage = pages[currentPageIndex]
+
+  // Get grid settings from current page
+  const { rows, cols, gap, margin } = currentPage?.gridSettings || { rows: 2, cols: 2, gap: 5, margin: 10 }
+  const hiddenCount = currentPage?.hiddenContent?.length || 0
 
   const dimensions = useMemo(() => {
     const size = PAGE_SIZES[pageSize]
@@ -136,6 +138,32 @@ export default function GridEditor() {
     setDragOverCellIndex(null)
   }, [draggedCellIndex, dragOverCellIndex, currentPageIndex, moveCell])
 
+  // Handle restoring hidden images by increasing grid
+  const handleRestoreHidden = useCallback(() => {
+    // Calculate minimum grid size needed to show all content
+    const totalNeeded = currentPage.cells.filter(c => c.content).length + hiddenCount
+    const currentCells = rows * cols
+
+    if (totalNeeded > currentCells) {
+      // Find a grid size that fits
+      let newRows = rows
+      let newCols = cols
+
+      while (newRows * newCols < totalNeeded) {
+        if (newCols <= newRows) {
+          newCols++
+        } else {
+          newRows++
+        }
+      }
+
+      setPageGrid(currentPageIndex, newRows, newCols)
+    } else {
+      // Just restore to empty cells
+      restoreHiddenContent(currentPageIndex)
+    }
+  }, [currentPage, hiddenCount, rows, cols, currentPageIndex, setPageGrid, restoreHiddenContent])
+
   // Pinch zoom support
   useEffect(() => {
     const element = canvasAreaRef.current
@@ -166,6 +194,14 @@ export default function GridEditor() {
         }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Hidden images warning banner */}
+        {hiddenCount > 0 && (
+          <div className="hidden-warning">
+            <span>{hiddenCount} hidden image{hiddenCount > 1 ? 's' : ''} - grid too small</span>
+            <button onClick={handleRestoreHidden}>Restore</button>
+          </div>
+        )}
+
         {/* Header with title */}
         {title && (
           <div className="page-header">{title}</div>
