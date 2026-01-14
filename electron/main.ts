@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url'
 import PDFDocument from 'pdfkit'
 import SVGtoPDF from 'svg-to-pdfkit'
 import archiver from 'archiver'
+import AdmZip from 'adm-zip'
 
 // ES module compatibility
 const __filename = fileURLToPath(import.meta.url)
@@ -303,7 +304,7 @@ ipcMain.handle('export-pdf', async (_event, data: {
   }
 })
 
-// Save layout as JSON
+// Save layout as .tlp (ZIP with images and layout.json)
 ipcMain.handle('save-layout', async (_event, data: any) => {
   if (!mainWindow) {
     return { success: false, error: 'No main window' }
@@ -311,8 +312,8 @@ ipcMain.handle('save-layout', async (_event, data: any) => {
 
   const { filePath, canceled } = await dialog.showSaveDialog(mainWindow, {
     title: 'Save Layout',
-    defaultPath: 'layout.json',
-    filters: [{ name: 'JSON Files', extensions: ['json'] }]
+    defaultPath: 'layout.tlp',
+    filters: [{ name: 'Tiled Layout Package', extensions: ['tlp'] }]
   })
 
   if (canceled || !filePath) {
@@ -320,15 +321,111 @@ ipcMain.handle('save-layout', async (_event, data: any) => {
   }
 
   try {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2))
-    return { success: true, filePath }
+    // Collect unique images and build a mapping
+    const images: Map<string, { filename: string; data: string; uniqueName: string }> = new Map()
+    let imageIndex = 0
+
+    // First pass: collect all unique images
+    for (const page of data.pages) {
+      for (const cell of page.cells) {
+        if (cell.content?.imageData) {
+          const key = cell.content.imageData
+          if (!images.has(key)) {
+            // Generate a unique filename to avoid collisions
+            const ext = getExtensionFromDataUrl(cell.content.imageData)
+            const uniqueName = `image_${imageIndex++}${ext}`
+            images.set(key, {
+              filename: cell.content.filename,
+              data: cell.content.imageData,
+              uniqueName
+            })
+          }
+        }
+      }
+      // Also collect from hiddenContent
+      for (const hidden of page.hiddenContent || []) {
+        if (hidden.imageData) {
+          const key = hidden.imageData
+          if (!images.has(key)) {
+            const ext = getExtensionFromDataUrl(hidden.imageData)
+            const uniqueName = `image_${imageIndex++}${ext}`
+            images.set(key, {
+              filename: hidden.filename,
+              data: hidden.imageData,
+              uniqueName
+            })
+          }
+        }
+      }
+    }
+
+    // Create layout data with image references instead of base64
+    const layoutData = {
+      ...data,
+      pages: data.pages.map((page: any) => ({
+        ...page,
+        cells: page.cells.map((cell: any) => ({
+          ...cell,
+          content: cell.content ? {
+            filename: cell.content.filename,
+            originalPath: cell.content.originalPath,
+            imageRef: images.get(cell.content.imageData)?.uniqueName || null
+          } : null
+        })),
+        hiddenContent: (page.hiddenContent || []).map((hidden: any) => ({
+          filename: hidden.filename,
+          originalPath: hidden.originalPath,
+          imageRef: images.get(hidden.imageData)?.uniqueName || null
+        }))
+      }))
+    }
+
+    // Create ZIP file
+    const output = fs.createWriteStream(filePath)
+    const archive = archiver('zip', { zlib: { level: 9 } })
+
+    return new Promise((resolve) => {
+      output.on('close', () => {
+        resolve({ success: true, filePath })
+      })
+
+      archive.on('error', (err) => {
+        resolve({ success: false, error: String(err) })
+      })
+
+      archive.pipe(output)
+
+      // Add images to images/ folder
+      for (const [, img] of images) {
+        const base64Data = img.data.split(',')[1]
+        const buffer = Buffer.from(base64Data, 'base64')
+        archive.append(buffer, { name: `images/${img.uniqueName}` })
+      }
+
+      // Add layout.json
+      archive.append(JSON.stringify(layoutData, null, 2), { name: 'layout.json' })
+
+      archive.finalize()
+    })
   } catch (error) {
     console.error('Error saving layout:', error)
     return { success: false, error: String(error) }
   }
 })
 
-// Load layout from JSON
+// Helper function to get file extension from data URL
+function getExtensionFromDataUrl(dataUrl: string): string {
+  const match = dataUrl.match(/^data:image\/([^;]+);/)
+  if (match) {
+    const type = match[1].toLowerCase()
+    if (type === 'jpeg') return '.jpg'
+    if (type === 'svg+xml') return '.svg'
+    return `.${type}`
+  }
+  return '.png'
+}
+
+// Load layout from .tlp (ZIP) or .json
 ipcMain.handle('load-layout', async () => {
   if (!mainWindow) {
     return { success: false, error: 'No main window' }
@@ -336,7 +433,11 @@ ipcMain.handle('load-layout', async () => {
 
   const { filePaths, canceled } = await dialog.showOpenDialog(mainWindow, {
     title: 'Load Layout',
-    filters: [{ name: 'JSON Files', extensions: ['json'] }],
+    filters: [
+      { name: 'Tiled Layout Package', extensions: ['tlp'] },
+      { name: 'JSON Files', extensions: ['json'] },
+      { name: 'All Layout Files', extensions: ['tlp', 'json'] }
+    ],
     properties: ['openFile']
   })
 
@@ -345,11 +446,144 @@ ipcMain.handle('load-layout', async () => {
   }
 
   try {
-    const content = fs.readFileSync(filePaths[0], 'utf-8')
-    const data = JSON.parse(content)
-    return { success: true, data }
+    const filePath = filePaths[0]
+    const ext = path.extname(filePath).toLowerCase()
+
+    if (ext === '.tlp') {
+      // Load from ZIP package
+      const zip = new AdmZip(filePath)
+      const layoutEntry = zip.getEntry('layout.json')
+
+      if (!layoutEntry) {
+        return { success: false, error: 'Invalid .tlp file: missing layout.json' }
+      }
+
+      const layoutData = JSON.parse(layoutEntry.getData().toString('utf-8'))
+
+      // Build image map from ZIP
+      const imageMap: Map<string, string> = new Map()
+      const zipEntries = zip.getEntries()
+
+      for (const entry of zipEntries) {
+        if (entry.entryName.startsWith('images/') && !entry.isDirectory) {
+          const imageName = path.basename(entry.entryName)
+          const imageBuffer = entry.getData()
+          const mimeType = getMimeTypeFromFilename(imageName)
+          const base64 = imageBuffer.toString('base64')
+          imageMap.set(imageName, `data:${mimeType};base64,${base64}`)
+        }
+      }
+
+      // Reconstruct layout with base64 image data
+      const data = {
+        ...layoutData,
+        pages: layoutData.pages.map((page: any) => ({
+          ...page,
+          cells: page.cells.map((cell: any) => ({
+            ...cell,
+            content: cell.content ? {
+              filename: cell.content.filename,
+              originalPath: cell.content.originalPath,
+              imageData: cell.content.imageRef ? imageMap.get(cell.content.imageRef) || '' : ''
+            } : null
+          })),
+          hiddenContent: (page.hiddenContent || []).map((hidden: any) => ({
+            filename: hidden.filename,
+            originalPath: hidden.originalPath,
+            imageData: hidden.imageRef ? imageMap.get(hidden.imageRef) || '' : ''
+          }))
+        }))
+      }
+
+      return { success: true, data }
+    } else {
+      // Load from JSON (legacy format)
+      const content = fs.readFileSync(filePath, 'utf-8')
+      const data = JSON.parse(content)
+      return { success: true, data }
+    }
   } catch (error) {
     console.error('Error loading layout:', error)
+    return { success: false, error: String(error) }
+  }
+})
+
+// Helper function to get MIME type from filename
+function getMimeTypeFromFilename(filename: string): string {
+  const ext = path.extname(filename).toLowerCase()
+  const mimeTypes: Record<string, string> = {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.svg': 'image/svg+xml'
+  }
+  return mimeTypes[ext] || 'image/png'
+}
+
+// Load layout from a specific file path (for drag-drop support)
+ipcMain.handle('load-layout-from-path', async (_event, filePath: string) => {
+  try {
+    const ext = path.extname(filePath).toLowerCase()
+
+    if (ext === '.tlp') {
+      // Load from ZIP package
+      const zip = new AdmZip(filePath)
+      const layoutEntry = zip.getEntry('layout.json')
+
+      if (!layoutEntry) {
+        return { success: false, error: 'Invalid .tlp file: missing layout.json' }
+      }
+
+      const layoutData = JSON.parse(layoutEntry.getData().toString('utf-8'))
+
+      // Build image map from ZIP
+      const imageMap: Map<string, string> = new Map()
+      const zipEntries = zip.getEntries()
+
+      for (const entry of zipEntries) {
+        if (entry.entryName.startsWith('images/') && !entry.isDirectory) {
+          const imageName = path.basename(entry.entryName)
+          const imageBuffer = entry.getData()
+          const mimeType = getMimeTypeFromFilename(imageName)
+          const base64 = imageBuffer.toString('base64')
+          imageMap.set(imageName, `data:${mimeType};base64,${base64}`)
+        }
+      }
+
+      // Reconstruct layout with base64 image data
+      const data = {
+        ...layoutData,
+        pages: layoutData.pages.map((page: any) => ({
+          ...page,
+          cells: page.cells.map((cell: any) => ({
+            ...cell,
+            content: cell.content ? {
+              filename: cell.content.filename,
+              originalPath: cell.content.originalPath,
+              imageData: cell.content.imageRef ? imageMap.get(cell.content.imageRef) || '' : ''
+            } : null
+          })),
+          hiddenContent: (page.hiddenContent || []).map((hidden: any) => ({
+            filename: hidden.filename,
+            originalPath: hidden.originalPath,
+            imageData: hidden.imageRef ? imageMap.get(hidden.imageRef) || '' : ''
+          }))
+        }))
+      }
+
+      return { success: true, data }
+    } else if (ext === '.json') {
+      // Load from JSON (legacy format)
+      const content = fs.readFileSync(filePath, 'utf-8')
+      const data = JSON.parse(content)
+      return { success: true, data }
+    } else {
+      return { success: false, error: 'Unsupported file type' }
+    }
+  } catch (error) {
+    console.error('Error loading layout from path:', error)
     return { success: false, error: String(error) }
   }
 })

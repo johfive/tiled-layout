@@ -11,7 +11,9 @@
     "electron:dev": "vite"
   },
   "dependencies": {
+    "@types/adm-zip": "^0.5.7",
     "@types/archiver": "^7.0.0",
+    "adm-zip": "^0.5.16",
     "archiver": "^7.0.1",
     "pdf-lib": "^1.17.1",
     "pdfkit": "^0.17.2",

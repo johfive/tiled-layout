@@ -18,7 +18,26 @@ function App() {
     const files = e.dataTransfer?.files
     if (!files || files.length === 0) return
 
-    // Check for JSON layout file
+    // Check for .tlp layout package file
+    for (const file of Array.from(files)) {
+      if (file.name.endsWith('.tlp')) {
+        const filePath = (file as any).path
+        if (filePath) {
+          const result = await window.electronAPI.loadLayoutFromPath(filePath)
+          if (result.success && result.data) {
+            loadLayoutData(result.data)
+            showToast(`Loaded layout from ${file.name}`)
+          } else {
+            showToast(`Failed to load ${file.name}: ${result.error}`, 'error')
+          }
+        } else {
+          showToast('Cannot access file path for .tlp file', 'error')
+        }
+        return
+      }
+    }
+
+    // Check for JSON layout file (legacy format)
     for (const file of Array.from(files)) {
       if (file.name.endsWith('.json')) {
         const reader = new FileReader()

@@ -100,6 +100,7 @@ declare global {
       exportPDF: (data: any) => Promise<{ success: boolean; filePath?: string; canceled?: boolean; error?: string }>
       saveLayout: (data: any) => Promise<{ success: boolean; filePath?: string; canceled?: boolean; error?: string }>
       loadLayout: () => Promise<{ success: boolean; data?: any; canceled?: boolean; error?: string }>
+      loadLayoutFromPath: (filePath: string) => Promise<{ success: boolean; data?: any; error?: string }>
       packageLayout: (data: any) => Promise<{ success: boolean; filePath?: string; fileCount?: number; canceled?: boolean; error?: string }>
     }
   }
