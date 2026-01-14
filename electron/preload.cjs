@@ -5,5 +5,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportPDF: (data) => ipcRenderer.invoke('export-pdf', data),
   saveLayout: (data) => ipcRenderer.invoke('save-layout', data),
   loadLayout: () => ipcRenderer.invoke('load-layout'),
-  packageLayout: (data) => ipcRenderer.invoke('package-layout', data)
+  loadLayoutFromPath: (filePath) => ipcRenderer.invoke('load-layout-from-path', filePath),
+  packageLayout: (data) => ipcRenderer.invoke('package-layout', data),
+  onOpenFile: (callback) => {
+    ipcRenderer.on('open-file', (_event, filePath) => callback(filePath))
+  }
 })

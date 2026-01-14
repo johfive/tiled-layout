@@ -40,6 +40,15 @@
       "category": "public.app-category.graphics-design",
       "target": "dmg"
     },
+    "fileAssociations": [
+      {
+        "ext": "tlp",
+        "name": "Tiled Layout Package",
+        "description": "Tiled Layout Package File",
+        "mimeType": "application/x-tiled-layout",
+        "role": "Editor"
+      }
+    ],
     "files": [
       "dist/**/*",
       "dist-electron/**/*"

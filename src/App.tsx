@@ -102,6 +102,22 @@ function App() {
     }
   }, [handleGlobalDragOver, handleGlobalDrop, handleKeyDown])
 
+  // Handle file open from Finder (double-click .tlp file)
+  useEffect(() => {
+    window.electronAPI.onOpenFile(async (filePath: string) => {
+      if (filePath.endsWith('.tlp')) {
+        const result = await window.electronAPI.loadLayoutFromPath(filePath)
+        if (result.success && result.data) {
+          loadLayoutData(result.data)
+          const filename = filePath.split('/').pop() || 'file'
+          showToast(`Loaded layout from ${filename}`)
+        } else {
+          showToast(`Failed to load file: ${result.error}`, 'error')
+        }
+      }
+    })
+  }, [loadLayoutData, showToast])
+
   return (
     <>
       <Toolbar />

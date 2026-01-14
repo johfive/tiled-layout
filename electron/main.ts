@@ -12,6 +12,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 let mainWindow: BrowserWindow | null = null
+let fileToOpen: string | null = null
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -36,7 +37,32 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  createWindow()
+
+  // If a file was passed via command line or open-file before window was ready
+  if (fileToOpen && mainWindow) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      if (fileToOpen) {
+        mainWindow?.webContents.send('open-file', fileToOpen)
+        fileToOpen = null
+      }
+    })
+  }
+})
+
+// Handle file open events on macOS (double-click .tlp file in Finder)
+app.on('open-file', (event, filePath) => {
+  event.preventDefault()
+
+  if (mainWindow) {
+    // Window is already open, send the file path to the renderer
+    mainWindow.webContents.send('open-file', filePath)
+  } else {
+    // Window not yet created, store the path and load after window is ready
+    fileToOpen = filePath
+  }
+})
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
