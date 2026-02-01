@@ -6,7 +6,15 @@
       "Bash(/usr/local/bin/node /Users/jonmiller/Sites/tiled-layout/node_modules/.bin/tsc:*)",
       "Bash(/usr/local/bin/npx vite build)",
       "Bash(pkill:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)",
+      "Bash(/usr/local/bin/npx electron-builder --mac)",
+      "Bash(open:*)",
+      "Bash(npm install:*)",
+      "mcp__chrome-devtools__list_pages",
+      "Bash(npm run build:*)",
+      "Bash(git restore:*)"
     ]
   }
 }
