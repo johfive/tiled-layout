@@ -9,5 +9,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   packageLayout: (data) => ipcRenderer.invoke('package-layout', data),
   onOpenFile: (callback) => {
     ipcRenderer.on('open-file', (_event, filePath) => callback(filePath))
+  },
+  onMenuNew: (callback) => {
+    ipcRenderer.on('menu-new', () => callback())
+  },
+  onMenuSave: (callback) => {
+    ipcRenderer.on('menu-save', () => callback())
+  },
+  onMenuLoad: (callback) => {
+    ipcRenderer.on('menu-load', () => callback())
+  },
+  onMenuPackage: (callback) => {
+    ipcRenderer.on('menu-package', () => callback())
+  },
+  onMenuExportPDF: (callback) => {
+    ipcRenderer.on('menu-export-pdf', () => callback())
+  },
+  onMenuToggleDarkMode: (callback) => {
+    ipcRenderer.on('menu-toggle-dark-mode', () => callback())
   }
 })

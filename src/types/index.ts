@@ -103,6 +103,12 @@ declare global {
       loadLayoutFromPath: (filePath: string) => Promise<{ success: boolean; data?: any; error?: string }>
       packageLayout: (data: any) => Promise<{ success: boolean; filePath?: string; fileCount?: number; canceled?: boolean; error?: string }>
       onOpenFile: (callback: (filePath: string) => void) => void
+      onMenuNew: (callback: () => void) => void
+      onMenuSave: (callback: () => void) => void
+      onMenuLoad: (callback: () => void) => void
+      onMenuPackage: (callback: () => void) => void
+      onMenuExportPDF: (callback: () => void) => void
+      onMenuToggleDarkMode: (callback: () => void) => void
     }
   }
 }

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
@@ -39,6 +39,91 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow()
+
+  // Build native menu
+  const menuTemplate: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    },
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'New',
+          accelerator: 'CmdOrCtrl+N',
+          click: () => mainWindow?.webContents.send('menu-new')
+        },
+        {
+          label: 'Open\u2026',
+          accelerator: 'CmdOrCtrl+O',
+          click: () => mainWindow?.webContents.send('menu-load')
+        },
+        {
+          label: 'Save\u2026',
+          accelerator: 'CmdOrCtrl+S',
+          click: () => mainWindow?.webContents.send('menu-save')
+        },
+        { type: 'separator' },
+        {
+          label: 'Package\u2026',
+          accelerator: 'Shift+CmdOrCtrl+P',
+          click: () => mainWindow?.webContents.send('menu-package')
+        },
+        {
+          label: 'Export PDF\u2026',
+          accelerator: 'Shift+CmdOrCtrl+E',
+          click: () => mainWindow?.webContents.send('menu-export-pdf')
+        }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { role: 'resetZoom' },
+        { type: 'separator' },
+        {
+          label: 'Toggle Dark Mode',
+          click: () => mainWindow?.webContents.send('menu-toggle-dark-mode')
+        },
+        { type: 'separator' },
+        { role: 'toggleDevTools' }
+      ]
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'close' }
+      ]
+    }
+  ]
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate))
 
   // If a file was passed via command line or open-file before window was ready
   if (fileToOpen && mainWindow) {

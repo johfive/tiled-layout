@@ -22,6 +22,21 @@ const DEFAULT_GRID_SETTINGS: PageGridSettings = {
   margin: 10
 }
 
+// Read dark mode preference from localStorage on init
+const getInitialDarkMode = (): boolean => {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem('darkMode')
+    if (stored !== null) {
+      const isDark = stored === 'true'
+      if (isDark) {
+        document.documentElement.classList.add('dark')
+      }
+      return isDark
+    }
+  }
+  return false
+}
+
 interface LayoutStore extends LayoutState, LayoutActions {}
 
 export const useLayoutStore = create<LayoutStore>((set, get) => ({
@@ -38,7 +53,7 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
   showPageNumbers: false,
   title: '',
   selectedCellId: null,
-  darkMode: false,
+  darkMode: getInitialDarkMode(),
   zoom: 1,
   toasts: [],
   isDirty: false,
@@ -228,6 +243,7 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
 
   setDarkMode: (dark: boolean) => {
     set({ darkMode: dark })
+    localStorage.setItem('darkMode', String(dark))
     if (dark) {
       document.documentElement.classList.add('dark')
     } else {
@@ -378,14 +394,8 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
   },
 
   loadLayoutData: (data: any) => {
-    // Apply dark mode if specified
-    if (data.darkMode !== undefined) {
-      if (data.darkMode) {
-        document.documentElement.classList.add('dark')
-      } else {
-        document.documentElement.classList.remove('dark')
-      }
-    }
+    // Dark mode is an app preference (persisted in localStorage), not a document setting.
+    // Don't override it when loading a file.
 
     // Migrate old format (global grid settings) to new format (per-page)
     const migratedPages = (data.pages || []).map((page: any) => {
@@ -420,7 +430,6 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
       showGridLines: data.showGridLines ?? true,
       showPageNumbers: data.showPageNumbers ?? false,
       title: data.title || '',
-      darkMode: data.darkMode ?? false,
       zoom: data.zoom || 1,
       currentPageIndex: 0,
       selectedCellId: null,

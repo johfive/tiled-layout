@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from 'react'
 import { useLayoutStore } from './stores/layoutStore'
+import { handleNew, handleSave, handleLoad, handlePackage, handleExport, handleToggleDarkMode } from './actions/fileActions'
 import Toolbar from './components/Toolbar'
 import PageList from './components/PageList'
 import GridEditor from './components/GridEditor'
@@ -117,6 +118,16 @@ function App() {
       }
     })
   }, [loadLayoutData, showToast])
+
+  // Wire up native menu commands
+  useEffect(() => {
+    window.electronAPI.onMenuNew(handleNew)
+    window.electronAPI.onMenuSave(handleSave)
+    window.electronAPI.onMenuLoad(handleLoad)
+    window.electronAPI.onMenuPackage(handlePackage)
+    window.electronAPI.onMenuExportPDF(handleExport)
+    window.electronAPI.onMenuToggleDarkMode(handleToggleDarkMode)
+  }, [])
 
   return (
     <>

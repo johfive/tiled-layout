@@ -154,6 +154,12 @@ body {
   border-color: #218838;
 }
 
+.toolbar .shortcut-hint {
+  opacity: 0.5;
+  font-size: 11px;
+  margin-left: 4px;
+}
+
 .toolbar .title-input {
   width: 120px;
   padding: 4px 8px;

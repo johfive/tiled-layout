@@ -1,4 +1,5 @@
 import { useLayoutStore } from '../stores/layoutStore'
+import { handlePackage, handleExport } from '../actions/fileActions'
 import { GridPreset, PageSize } from '../types'
 
 const GRID_PRESETS: GridPreset[] = [
@@ -30,111 +31,12 @@ export default function Toolbar() {
     darkMode,
     setDarkMode,
     zoom,
-    setZoom,
-    loadLayoutData,
-    showToast,
-    isDirty,
-    markClean,
-    resetToNew
+    setZoom
   } = useLayoutStore()
 
   // Get current page's grid settings
   const currentPage = pages[currentPageIndex]
   const { rows, cols, gap, margin } = currentPage?.gridSettings || { rows: 2, cols: 2, gap: 5, margin: 10 }
-
-  const handleNew = () => {
-    if (isDirty) {
-      const confirmed = window.confirm('You have unsaved changes. Create a new document and discard changes?')
-      if (!confirmed) return
-    }
-    resetToNew()
-    showToast('New document created')
-  }
-
-  const handleExport = async () => {
-    const exportData = {
-      pages: pages.map(page => ({
-        cells: page.cells.map(cell => ({
-          imageData: cell.content?.imageData || null,
-          filename: cell.content?.filename || null
-        })),
-        gridSettings: page.gridSettings
-      })),
-      pageSize,
-      showFilenames,
-      showPageNumbers,
-      title
-    }
-
-    const result = await window.electronAPI.exportPDF(exportData)
-
-    if (result.success) {
-      showToast(`PDF exported to ${result.filePath}`)
-    } else if (!result.canceled) {
-      showToast(`Export failed: ${result.error}`, 'error')
-    }
-  }
-
-  const handleSaveLayout = async () => {
-    const layoutData = {
-      pages: pages.map(page => ({
-        id: page.id,
-        cells: page.cells.map(cell => ({
-          id: cell.id,
-          content: cell.content
-        })),
-        gridSettings: page.gridSettings,
-        hiddenContent: page.hiddenContent
-      })),
-      pageSize,
-      showFilenames,
-      showGridLines,
-      showPageNumbers,
-      title,
-      darkMode,
-      zoom
-    }
-
-    const result = await window.electronAPI.saveLayout(layoutData)
-
-    if (result.success) {
-      markClean()
-      showToast(`Layout saved to ${result.filePath}`)
-    } else if (!result.canceled) {
-      showToast(`Save failed: ${result.error}`, 'error')
-    }
-  }
-
-  const handleLoadLayout = async () => {
-    const result = await window.electronAPI.loadLayout()
-
-    if (result.success && result.data) {
-      loadLayoutData(result.data)
-      showToast('Layout loaded')
-    } else if (!result.canceled && result.error) {
-      showToast(`Load failed: ${result.error}`, 'error')
-    }
-  }
-
-  const handlePackage = async (asZip: boolean) => {
-    const packageData = {
-      pages: pages.map(page => ({
-        cells: page.cells.map(cell => ({
-          imageData: cell.content?.imageData || null,
-          filename: cell.content?.filename || null
-        }))
-      })),
-      asZip
-    }
-
-    const result = await window.electronAPI.packageLayout(packageData)
-
-    if (result.success) {
-      showToast(`Package saved (${result.fileCount} files)`)
-    } else if (!result.canceled) {
-      showToast(`Package failed: ${result.error}`, 'error')
-    }
-  }
 
   const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const preset = GRID_PRESETS.find(p => p.name === e.target.value)
@@ -282,23 +184,12 @@ export default function Toolbar() {
 
         <div className="toolbar-divider" />
 
-        <button onClick={handleNew} title="New document">
-          New
-        </button>
-        <button onClick={handleSaveLayout} title="Save layout (JSON)">
-          Save
-        </button>
-        <button onClick={handleLoadLayout} title="Load layout (JSON)">
-          Load
-        </button>
-        <button onClick={() => handlePackage(true)} title="Package as ZIP">
-          Package
+        <button onClick={handlePackage} title="Package as ZIP (⇧⌘P)">
+          Package <span className="shortcut-hint">⇧⌘P</span>
         </button>
 
-        <div className="toolbar-divider" />
-
-        <button className="export-btn" onClick={handleExport}>
-          Export PDF
+        <button className="export-btn" onClick={handleExport} title="Export PDF (⇧⌘E)">
+          Export PDF <span className="shortcut-hint">⇧⌘E</span>
         </button>
       </div>
     </div>
