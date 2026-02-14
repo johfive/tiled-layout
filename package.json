@@ -38,7 +38,29 @@
     "productName": "Tiled Layout",
     "mac": {
       "category": "public.app-category.graphics-design",
-      "target": "dmg"
+      "target": "dmg",
+      "extraFiles": [
+        {
+          "from": "TLPQuickLook/build/Build/Products/Release/TLPThumbnail.appex",
+          "to": "PlugIns/TLPThumbnail.appex"
+        },
+        {
+          "from": "TLPQuickLook/build/Build/Products/Release/TLPPreview.appex",
+          "to": "PlugIns/TLPPreview.appex"
+        }
+      ],
+      "extendInfo": {
+        "UTExportedTypeDeclarations": [
+          {
+            "UTTypeIdentifier": "com.tiledlayout.tlp",
+            "UTTypeDescription": "Tiled Layout Package",
+            "UTTypeConformsTo": ["com.pkware.zip-archive", "public.data"],
+            "UTTypeTagSpecification": {
+              "public.filename-extension": ["tlp"]
+            }
+          }
+        ]
+      }
     },
     "fileAssociations": [
       {

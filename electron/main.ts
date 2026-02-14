@@ -56,7 +56,10 @@ app.on('open-file', (event, filePath) => {
   event.preventDefault()
 
   if (mainWindow) {
-    // Window is already open, send the file path to the renderer
+    // Bring the window to focus and send the file path
+    mainWindow.show()
+    mainWindow.focus()
+    app.focus({ steal: true })
     mainWindow.webContents.send('open-file', filePath)
   } else {
     // Window not yet created, store the path and load after window is ready
