@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react'
 import { useLayoutStore } from '../stores/layoutStore'
 import { handlePackage, handleExport } from '../actions/fileActions'
 import { GridPreset, PageSize } from '../types'
@@ -27,12 +28,12 @@ export default function Toolbar() {
     showPageNumbers,
     setShowPageNumbers,
     title,
-    setTitle,
-    darkMode,
-    setDarkMode,
-    zoom,
-    setZoom
+    setTitle
   } = useLayoutStore()
+
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const flyoutRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
 
   // Get current page's grid settings
   const currentPage = pages[currentPageIndex]
@@ -47,118 +48,33 @@ export default function Toolbar() {
 
   const currentPreset = GRID_PRESETS.find(p => p.rows === rows && p.cols === cols)
 
+  // Close flyout on click outside
+  useEffect(() => {
+    if (!settingsOpen) return
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        flyoutRef.current && !flyoutRef.current.contains(e.target as Node) &&
+        buttonRef.current && !buttonRef.current.contains(e.target as Node)
+      ) {
+        setSettingsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [settingsOpen])
+
   return (
     <div className="toolbar-wrapper">
       <div className="toolbar">
-        <div className="toolbar-group">
-          <label>Page:</label>
-          <select
-            value={pageSize}
-            onChange={(e) => setPageSize(e.target.value as PageSize)}
-          >
-            <option value="A4">A4</option>
-            <option value="A3">A3</option>
-          </select>
-        </div>
-
-        <div className="toolbar-divider" />
-
-        <div className="toolbar-group">
-          <label>Grid:</label>
-          <select
-            value={currentPreset?.name || 'custom'}
-            onChange={handlePresetChange}
-          >
-            {GRID_PRESETS.map(preset => (
-              <option key={preset.name} value={preset.name}>{preset.name}</option>
-            ))}
-            {!currentPreset && <option value="custom">Custom</option>}
-          </select>
-        </div>
-
-        <div className="toolbar-group">
-          <label>R:</label>
-          <input
-            type="number"
-            min={1}
-            max={10}
-            value={rows}
-            onChange={(e) => setPageGrid(currentPageIndex, parseInt(e.target.value) || 1, cols)}
-          />
-        </div>
-
-        <div className="toolbar-group">
-          <label>C:</label>
-          <input
-            type="number"
-            min={1}
-            max={10}
-            value={cols}
-            onChange={(e) => setPageGrid(currentPageIndex, rows, parseInt(e.target.value) || 1)}
-          />
-        </div>
-
-        <div className="toolbar-group">
-          <label>Gap:</label>
-          <input
-            type="number"
-            min={0}
-            max={20}
-            value={gap}
-            onChange={(e) => setPageGap(currentPageIndex, parseInt(e.target.value) || 0)}
-          />
-        </div>
-
-        <div className="toolbar-group">
-          <label>Margin:</label>
-          <input
-            type="number"
-            min={5}
-            max={30}
-            value={margin}
-            onChange={(e) => setPageMargin(currentPageIndex, parseInt(e.target.value) || 5)}
-          />
-        </div>
-
-        <div className="toolbar-divider" />
-
-        <label className="toolbar-checkbox">
-          <input
-            type="checkbox"
-            checked={showGridLines}
-            onChange={(e) => setShowGridLines(e.target.checked)}
-          />
-          Grid
-        </label>
-
-        <label className="toolbar-checkbox">
-          <input
-            type="checkbox"
-            checked={showFilenames}
-            onChange={(e) => setShowFilenames(e.target.checked)}
-          />
-          Names
-        </label>
-
-        <label className="toolbar-checkbox">
-          <input
-            type="checkbox"
-            checked={showPageNumbers}
-            onChange={(e) => setShowPageNumbers(e.target.checked)}
-          />
-          Page #
-        </label>
-
-        <div className="toolbar-divider" />
-
-        <label className="toolbar-checkbox">
-          <input
-            type="checkbox"
-            checked={darkMode}
-            onChange={(e) => setDarkMode(e.target.checked)}
-          />
-          Dark
-        </label>
+        <button
+          ref={buttonRef}
+          className={`settings-toggle ${settingsOpen ? 'active' : ''}`}
+          onClick={() => setSettingsOpen(!settingsOpen)}
+        >
+          Settings {settingsOpen ? '▴' : '▾'}
+        </button>
 
         <div className="toolbar-divider" />
 
@@ -175,15 +91,6 @@ export default function Toolbar() {
 
         <div style={{ flex: 1 }} />
 
-        <div className="toolbar-group zoom-controls">
-          <button onClick={() => setZoom(zoom - 0.25)} title="Zoom out">−</button>
-          <span className="zoom-label">{Math.round(zoom * 100)}%</span>
-          <button onClick={() => setZoom(zoom + 0.25)} title="Zoom in">+</button>
-          <button onClick={() => setZoom(1)} title="Reset zoom">⌘0</button>
-        </div>
-
-        <div className="toolbar-divider" />
-
         <button onClick={handlePackage} title="Package as ZIP (⇧⌘P)">
           Package <span className="shortcut-hint">⇧⌘P</span>
         </button>
@@ -192,6 +99,105 @@ export default function Toolbar() {
           Export PDF <span className="shortcut-hint">⇧⌘E</span>
         </button>
       </div>
+
+      {settingsOpen && (
+        <div className="settings-flyout" ref={flyoutRef}>
+          <div className="flyout-row">
+            <label>Page size:</label>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(e.target.value as PageSize)}
+            >
+              <option value="A4">A4</option>
+              <option value="A3">A3</option>
+            </select>
+          </div>
+
+          <div className="flyout-divider" />
+
+          <div className="flyout-row">
+            <label>Grid:</label>
+            <select
+              value={currentPreset?.name || 'custom'}
+              onChange={handlePresetChange}
+            >
+              {GRID_PRESETS.map(preset => (
+                <option key={preset.name} value={preset.name}>{preset.name}</option>
+              ))}
+              {!currentPreset && <option value="custom">Custom</option>}
+            </select>
+
+            <label>R:</label>
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={rows}
+              onChange={(e) => setPageGrid(currentPageIndex, parseInt(e.target.value) || 1, cols)}
+            />
+
+            <label>C:</label>
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={cols}
+              onChange={(e) => setPageGrid(currentPageIndex, rows, parseInt(e.target.value) || 1)}
+            />
+          </div>
+
+          <div className="flyout-row">
+            <label>Gap:</label>
+            <input
+              type="number"
+              min={0}
+              max={20}
+              value={gap}
+              onChange={(e) => setPageGap(currentPageIndex, parseInt(e.target.value) || 0)}
+            />
+
+            <label>Margin:</label>
+            <input
+              type="number"
+              min={5}
+              max={30}
+              value={margin}
+              onChange={(e) => setPageMargin(currentPageIndex, parseInt(e.target.value) || 5)}
+            />
+          </div>
+
+          <div className="flyout-divider" />
+
+          <div className="flyout-row">
+            <label className="flyout-checkbox">
+              <input
+                type="checkbox"
+                checked={showGridLines}
+                onChange={(e) => setShowGridLines(e.target.checked)}
+              />
+              Grid lines
+            </label>
+
+            <label className="flyout-checkbox">
+              <input
+                type="checkbox"
+                checked={showFilenames}
+                onChange={(e) => setShowFilenames(e.target.checked)}
+              />
+              Filenames
+            </label>
+
+            <label className="flyout-checkbox">
+              <input
+                type="checkbox"
+                checked={showPageNumbers}
+                onChange={(e) => setShowPageNumbers(e.target.checked)}
+              />
+              Page numbers
+            </label>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

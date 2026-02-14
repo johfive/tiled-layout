@@ -4,6 +4,7 @@ import { handleNew, handleSave, handleLoad, handlePackage, handleExport, handleT
 import Toolbar from './components/Toolbar'
 import PageList from './components/PageList'
 import GridEditor from './components/GridEditor'
+import ZoomBar from './components/ZoomBar'
 import Toast from './components/Toast'
 
 function App() {
@@ -136,6 +137,7 @@ function App() {
         <PageList />
         <GridEditor />
       </div>
+      <ZoomBar />
       <div className="toast-container">
         {toasts.map(toast => (
           <Toast

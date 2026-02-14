@@ -553,32 +553,183 @@ body {
   background: var(--bg-secondary);
 }
 
-/* Zoom Controls */
-.zoom-controls {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+:root.dark .page-thumbnail-cell {
+  background: #e8e8e8;
 }
 
-.zoom-controls button {
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  font-size: 14px;
+:root.dark .page-thumbnail-cell.has-content {
+  background: #0066cc;
+}
+
+:root.dark .settings-flyout {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+:root.dark .settings-flyout label {
+  color: var(--text-secondary);
+}
+
+:root.dark .settings-flyout select,
+:root.dark .settings-flyout input[type="number"] {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+:root.dark .zoom-bar {
+  background: rgba(37, 37, 37, 0.85);
+  border-color: var(--border-color);
+}
+
+:root.dark .zoom-bar button {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+:root.dark .zoom-bar button:hover {
+  background: #444444;
+}
+
+/* Settings Toggle Button */
+.settings-toggle {
   font-weight: 500;
 }
 
-.zoom-label {
+.settings-toggle.active {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: white;
+}
+
+.settings-toggle.active:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+/* Settings Flyout */
+.settings-flyout {
+  position: absolute;
+  top: 50px;
+  left: 80px;
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 12px 16px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 360px;
+}
+
+.flyout-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.flyout-row label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.flyout-row select {
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 13px;
+  background: white;
+  min-width: 70px;
+}
+
+.flyout-row input[type="number"] {
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 13px;
+  width: 50px;
+}
+
+.flyout-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.flyout-checkbox input {
+  margin: 0;
+}
+
+.flyout-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 2px 0;
+}
+
+/* Zoom Bar (bottom-right) */
+.zoom-bar {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  z-index: 900;
+  font-size: 12px;
+}
+
+.zoom-bar button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.zoom-bar button:hover {
+  background: var(--bg-tertiary);
+}
+
+.zoom-bar-label {
   font-size: 11px;
   color: var(--text-secondary);
-  min-width: 40px;
+  min-width: 36px;
   text-align: center;
+}
+
+.zoom-bar-build {
+  font-size: 10px;
+  color: var(--text-secondary);
+  opacity: 0.6;
+  margin-left: 4px;
 }
 
 /* Toast Notifications */
 .toast-container {
   position: fixed;
-  bottom: 20px;
+  bottom: 60px;
   right: 20px;
   display: flex;
   flex-direction: column;
